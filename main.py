@@ -16,6 +16,10 @@ class App(QMainWindow):
         self.width = 1000
         self.height = 600
 
+        self.selected_coord1 = []
+        self.selected_coord2 = []
+        self.average = []
+
         self.points1 = []
         self.points2 = []
 
@@ -31,7 +35,6 @@ class App(QMainWindow):
         pixmap = QPixmap(qImg)
         pixmap_label.setPixmap(pixmap)
 
-
     def placeImgToLabel2(self, image):
 
         pixmap_label = self.qlabel2
@@ -42,29 +45,25 @@ class App(QMainWindow):
         pixmap = QPixmap(qImg)
         pixmap_label.setPixmap(pixmap)
 
-
-    # Draw a point
+    #  Draw a point
     def draw_point1(self, p, color):
 
         cv2.circle(self.inputImg, p, 2, color, 2, 6, 0)
         self.placeImgToLabel1(self.inputImg)
 
-    # Draw a point
+    #  Draw a point
     def draw_point2(self, p, color):
 
         cv2.circle(self.targetImg, p, 2, color, 2, 6, 0)
         self.placeImgToLabel2(self.targetImg)
 
-
-    #get position of the pixel when the mouse clicked on a pixel
+    #  get position of the pixel when the mouse clicked on a pixel
     def getPos1(self, event):
 
         x = event.pos().x()
         y = event.pos().y()
 
-        self.points1.append((x, y))
-        self.subdiv1.insert((x, y))
-
+        self.selected_coord1.append((x, y))
         self.draw_point1((x, y), (0, 0, 255))
 
 
@@ -74,9 +73,7 @@ class App(QMainWindow):
         x = event.pos().x()
         y = event.pos().y()
 
-        self.points2.append((x, y))
-        self.subdiv2.insert((x, y))
-
+        self.selected_coord2.append((x, y))
         self.draw_point2((x, y), (0, 0, 255))
 
 
@@ -116,10 +113,6 @@ class App(QMainWindow):
         pixmap_label.setPixmap(pixmap)
 
         pixmap_label.mousePressEvent = self.getPos2
-
-        ## TRIANGULATION PART ##
-        self.rect2 = (0, 0, width, height)  # for triangular operation
-        self.subdiv2 = cv2.Subdiv2D(self.rect2)
         # **************************************************************
 
     # Check if a point is inside a rectangle
@@ -137,7 +130,21 @@ class App(QMainWindow):
 
     def createTriangulation1(self):
 
-        triangleList = self.subdiv1.getTriangleList();
+        for i in range(len(self.selected_coord1)):
+            avg_x = int((self.selected_coord1[i][0] + self.selected_coord2[i][0]) / 2)
+            avg_y = int((self.selected_coord1[i][1] + self.selected_coord2[i][1]) / 2)
+
+            for j in range(len(self.average)):  # check if there is an average value as same with just calculated
+                if avg_x == self.average[j][0]:  # if there is same average x coordinate, increment by one
+                    avg_x += 1
+                if avg_y == self.average[j][1]:  # if there is same average y coordinate, increment by one
+                    avg_y += 1
+
+            self.average.append((avg_x, avg_y))
+            self.subdiv1.insert((avg_x, avg_y))
+
+
+        triangleList = self.subdiv1.getTriangleList()
 
         height, width, channel = self.inputImg.shape
         r = (0, 0, width, height)
@@ -149,30 +156,169 @@ class App(QMainWindow):
             pt3 = (t[4], t[5])
 
             if self.rect_contains(r, pt1) and self.rect_contains(r, pt2) and self.rect_contains(r, pt3):
-                cv2.line(self.inputImg, pt1, pt2, (255,255,255), 1, 8, 0)
-                cv2.line(self.inputImg, pt2, pt3, (255,255,255), 1, 8, 0)
-                cv2.line(self.inputImg, pt3, pt1, (255,255,255), 1, 8, 0)
+
+                for i in range(len(self.average)):
+                    if pt1 == self.average[i]:
+                        index1 = i
+
+                    if pt2 == self.average[i]:
+                        index2 = i
+
+                    if pt3 == self.average[i]:
+                        index3 = i
 
 
-        triangleList = self.subdiv2.getTriangleList()
+                input_pt1 = self.selected_coord1[index1]
+                target_pt1 = self.selected_coord2[index1]
 
-        for t in triangleList:
+                input_pt2 = self.selected_coord1[index2]
+                target_pt2 = self.selected_coord2[index2]
 
-            pt1 = (t[0], t[1])
-            pt2 = (t[2], t[3])
-            pt3 = (t[4], t[5])
+                input_pt3 = self.selected_coord1[index3]
+                target_pt3 = self.selected_coord2[index3]
 
-            if self.rect_contains(r, pt1) and self.rect_contains(r, pt2) and self.rect_contains(r, pt3):
-                cv2.line(self.targetImg, pt1, pt2, (255, 255, 255), 1, 8, 0)
-                cv2.line(self.targetImg, pt2, pt3, (255, 255, 255), 1, 8, 0)
-                cv2.line(self.targetImg, pt3, pt1, (255, 255, 255), 1, 8, 0)
+                self.points1.append((input_pt1[0], input_pt1[1], input_pt2[0], input_pt2[1], input_pt3[0], input_pt3[1]))
+                self.points2.append((target_pt1[0], target_pt1[1], target_pt2[0], target_pt2[1], target_pt3[0], target_pt3[1]))
+
+                cv2.line(self.inputImg, input_pt1, input_pt2, (255, 255, 255), 1, 8, 0)
+                cv2.line(self.inputImg, input_pt2, input_pt3, (255, 255, 255), 1, 8, 0)
+                cv2.line(self.inputImg, input_pt3, input_pt1, (255, 255, 255), 1, 8, 0)
+
+                cv2.line(self.targetImg, target_pt1, target_pt2, (255, 255, 255), 1, 8, 0)
+                cv2.line(self.targetImg, target_pt2, target_pt3, (255, 255, 255), 1, 8, 0)
+                cv2.line(self.targetImg, target_pt3, target_pt1, (255, 255, 255), 1, 8, 0)
 
         self.placeImgToLabel1(self.inputImg)
         self.placeImgToLabel2(self.targetImg)
 
 
+
+
+    def affineTransformMatrix(self, tri1, tri2):
+
+        a = np.zeros((6, 6), dtype=np.float32)
+
+        pt1_x = tri1[0][0]
+        pt1_y = tri1[0][1]
+
+        pt2_x = tri1[1][0]
+        pt2_y = tri1[1][1]
+
+        pt3_x = tri1[2][0]
+        pt3_y = tri1[2][1]
+
+        a[0, 0] = pt1_x
+        a[0, 1] = pt1_y
+        a[0, 4] = 1
+        a[1, 2] = pt1_x
+        a[1, 3] = pt1_y
+        a[1, 5] = 1
+        a[2, 0] = pt2_x
+        a[2, 1] = pt2_y
+        a[2, 4] = 1
+        a[3, 2] = pt2_x
+        a[3, 3] = pt2_y
+        a[3, 5] = 1
+        a[4, 0] = pt3_x
+        a[4, 1] = pt3_y
+        a[4, 4] = 1
+        a[5, 2] = pt3_x
+        a[5, 3] = pt3_y
+        a[5, 5] = 1
+
+        a = np.linalg.inv(a)
+
+        b = np.zeros((6, 1), dtype=np.float32)
+
+        qt1_x = tri2[0][0]
+        qt1_y = tri2[0][1]
+
+        qt2_x = tri2[1][0]
+        qt2_y = tri2[1][1]
+
+        qt3_x = tri2[2][0]
+        qt3_y = tri2[2][1]
+
+        b[0] = qt1_x
+        b[1] = qt1_y
+        b[2] = qt2_x
+        b[3] = qt2_y
+        b[4] = qt3_x
+        b[5] = qt3_y
+
+        m = np.zeros((6, 1), dtype=np.float32)
+
+        m[0] = a[0, 0] * b[0] + a[0, 1] * b[1] + a[0, 2] * b[2] + a[0, 3] * b[3] + a[0, 4] * b[4] + a[0, 5] * b[5]
+        m[1] = a[1, 0] * b[0] + a[1, 1] * b[1] + a[1, 2] * b[2] + a[1, 3] * b[3] + a[1, 4] * b[4] + a[1, 5] * b[5]
+        m[2] = a[2, 0] * b[0] + a[2, 1] * b[1] + a[2, 2] * b[2] + a[2, 3] * b[3] + a[2, 4] * b[4] + a[2, 5] * b[5]
+        m[3] = a[3, 0] * b[0] + a[3, 1] * b[1] + a[3, 2] * b[2] + a[3, 3] * b[3] + a[3, 4] * b[4] + a[3, 5] * b[5]
+        m[4] = a[4, 0] * b[0] + a[4, 1] * b[1] + a[4, 2] * b[2] + a[4, 3] * b[3] + a[4, 4] * b[4] + a[4, 5] * b[5]
+        m[5] = a[5, 0] * b[0] + a[5, 1] * b[1] + a[5, 2] * b[2] + a[5, 3] * b[3] + a[5, 4] * b[4] + a[5, 5] * b[5]
+
+        affMat = np.zeros((3, 3), dtype=np.float32)
+
+        affMat[0, 0] = m[0]
+        affMat[0, 1] = m[1]
+        affMat[0, 2] = m[4]
+        affMat[1, 0] = m[2]
+        affMat[1, 1] = m[3]
+        affMat[1, 2] = m[5]
+        affMat[2, 0] = 0
+        affMat[2, 1] = 0
+        affMat[2, 2] = 1
+
+        return affMat
+
+
     def morphing(self):
-        return None
+
+        resultImg = 255 * np.ones(self.inputImg.shape, dtype=self.inputImg.dtype)
+
+        for i in range(len(self.points1)):
+            triangular1 = np.float32([[[self.points1[i][0], self.points1[i][1]], [self.points1[i][2], self.points1[i][3]], [self.points1[i][4], self.points1[i][5]]]])
+            triangular2 = np.float32([[[self.points2[i][0], self.points2[i][1]], [self.points2[i][2], self.points2[i][3]], [self.points2[i][4], self.points2[i][5]]]])
+
+            r1 = cv2.boundingRect(triangular1)
+            r2 = cv2.boundingRect(triangular2)
+
+            triangular1_cropped = []
+            triangular2_cropped = []
+
+            for j in range(0, 3):
+                triangular1_cropped.append(((triangular1[0][j][0] - r1[0]), (triangular1[0][j][1] - r1[1])))
+                triangular2_cropped.append(((triangular2[0][j][0] - r2[0]), (triangular2[0][j][1] - r2[1])))
+
+            # Crop input image
+            img1Cropped = self.inputImg[r1[1]:r1[1] + r1[3], r1[0]:r1[0] + r1[2]]
+
+            affMat = self.affineTransformMatrix(np.float32(triangular1_cropped), np.float32(triangular2_cropped))
+
+            # Given a pair of triangles, find the affine transform.
+            #warpMat = cv2.getAffineTransform(np.float32(triangular1_cropped), np.float32(triangular2_cropped))
+
+            #print("warpMat: ", warpMat)
+
+            # Apply the Affine Transform just found to the src image
+            img2Cropped = cv2.warpAffine(img1Cropped, affMat, (r2[2], r2[3]), None, flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
+
+            # Get mask by filling triangle
+            mask = np.zeros((r2[3], r2[2], 3), dtype=np.float32)
+            cv2.fillConvexPoly(mask, np.int32(triangular2_cropped), (1.0, 1.0, 1.0), 16, 0)
+
+            img2Cropped = img2Cropped * mask
+
+            # Copy triangular region of the rectangular patch to the output image
+            resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] * ((1.0, 1.0, 1.0) - mask)
+
+            resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] + img2Cropped
+
+        pixmap_label = self.qlabel3
+        height, width, channel = resultImg.shape
+
+        bytesPerLine = 3 * width
+        qImg = QImage(resultImg.data, width, height, bytesPerLine, QImage.Format_RGB888).rgbSwapped()
+        pixmap = QPixmap(qImg)
+        pixmap_label.setPixmap(pixmap)
 
 
     def initUI(self):
