@@ -48,14 +48,16 @@ class App(QMainWindow):
     #  Draw a point
     def draw_point1(self, p, color):
 
-        cv2.circle(self.inputImg, p, 2, color, 2, 6, 0)
-        self.placeImgToLabel1(self.inputImg)
+        tmp_image = self.inputImg
+        cv2.circle(tmp_image, p, 2, color, 2, 6, 0)
+        self.placeImgToLabel1(tmp_image)
 
     #  Draw a point
     def draw_point2(self, p, color):
 
-        cv2.circle(self.targetImg, p, 2, color, 2, 6, 0)
-        self.placeImgToLabel2(self.targetImg)
+        tmp_image = self.targetImg
+        cv2.circle(tmp_image, p, 2, color, 2, 6, 0)
+        self.placeImgToLabel2(tmp_image)
 
     #  get position of the pixel when the mouse clicked on a pixel
     def getPos1(self, event):
@@ -66,7 +68,6 @@ class App(QMainWindow):
         self.selected_coord1.append((x, y))
         self.draw_point1((x, y), (0, 0, 255))
 
-
     #get position of the pixel when the mouse clicked on a pixel
     def getPos2(self, event):
 
@@ -76,12 +77,12 @@ class App(QMainWindow):
         self.selected_coord2.append((x, y))
         self.draw_point2((x, y), (0, 0, 255))
 
-
     def openInputImage(self):
 
         # ******** place image into qlabel object *********************
         imagePath, _ = QFileDialog.getOpenFileName()
         self.inputImg = cv2.imread(imagePath)
+        self.inputImg2 = cv2.imread(imagePath)
 
         pixmap_label = self.qlabel1
         height, width, channel = self.inputImg.shape
@@ -90,7 +91,6 @@ class App(QMainWindow):
         qImg = QImage(self.inputImg.data, width, height, bytesPerLine, QImage.Format_RGB888).rgbSwapped()
         pixmap = QPixmap(qImg)
         pixmap_label.setPixmap(pixmap)
-
         pixmap_label.mousePressEvent = self.getPos1
 
         ## TRIANGULATION PART ##
@@ -103,6 +103,7 @@ class App(QMainWindow):
         # ******** place image into qlabel object *********************
         imagePath, _ = QFileDialog.getOpenFileName()
         self.targetImg = cv2.imread(imagePath)
+        self.targetImg2 = self.targetImg
 
         pixmap_label = self.qlabel2
         height, width, channel = self.targetImg.shape
@@ -111,7 +112,6 @@ class App(QMainWindow):
         qImg = QImage(self.targetImg.data, width, height, bytesPerLine, QImage.Format_RGB888).rgbSwapped()
         pixmap = QPixmap(qImg)
         pixmap_label.setPixmap(pixmap)
-
         pixmap_label.mousePressEvent = self.getPos2
         # **************************************************************
 
@@ -126,7 +126,6 @@ class App(QMainWindow):
         elif point[1] > rect[3]:
             return False
         return True
-
 
     def createTriangulation1(self):
 
@@ -143,11 +142,13 @@ class App(QMainWindow):
             self.average.append((avg_x, avg_y))
             self.subdiv1.insert((avg_x, avg_y))
 
-
         triangleList = self.subdiv1.getTriangleList()
 
         height, width, channel = self.inputImg.shape
         r = (0, 0, width, height)
+
+        tmp_input = self.inputImg
+        tmp_target = self.targetImg
 
         for t in triangleList:
 
@@ -167,7 +168,6 @@ class App(QMainWindow):
                     if pt3 == self.average[i]:
                         index3 = i
 
-
                 input_pt1 = self.selected_coord1[index1]
                 target_pt1 = self.selected_coord2[index1]
 
@@ -180,19 +180,16 @@ class App(QMainWindow):
                 self.points1.append((input_pt1[0], input_pt1[1], input_pt2[0], input_pt2[1], input_pt3[0], input_pt3[1]))
                 self.points2.append((target_pt1[0], target_pt1[1], target_pt2[0], target_pt2[1], target_pt3[0], target_pt3[1]))
 
-                cv2.line(self.inputImg, input_pt1, input_pt2, (255, 255, 255), 1, 8, 0)
-                cv2.line(self.inputImg, input_pt2, input_pt3, (255, 255, 255), 1, 8, 0)
-                cv2.line(self.inputImg, input_pt3, input_pt1, (255, 255, 255), 1, 8, 0)
+                cv2.line(tmp_input, input_pt1, input_pt2, (255, 255, 255), 1, 8, 0)
+                cv2.line(tmp_input, input_pt2, input_pt3, (255, 255, 255), 1, 8, 0)
+                cv2.line(tmp_input, input_pt3, input_pt1, (255, 255, 255), 1, 8, 0)
 
-                cv2.line(self.targetImg, target_pt1, target_pt2, (255, 255, 255), 1, 8, 0)
-                cv2.line(self.targetImg, target_pt2, target_pt3, (255, 255, 255), 1, 8, 0)
-                cv2.line(self.targetImg, target_pt3, target_pt1, (255, 255, 255), 1, 8, 0)
+                cv2.line(tmp_target, target_pt1, target_pt2, (255, 255, 255), 1, 8, 0)
+                cv2.line(tmp_target, target_pt2, target_pt3, (255, 255, 255), 1, 8, 0)
+                cv2.line(tmp_target, target_pt3, target_pt1, (255, 255, 255), 1, 8, 0)
 
-        self.placeImgToLabel1(self.inputImg)
-        self.placeImgToLabel2(self.targetImg)
-
-
-
+        self.placeImgToLabel1(tmp_input)
+        self.placeImgToLabel2(tmp_target)
 
     def affineTransformMatrix(self, tri1, tri2):
 
@@ -269,15 +266,37 @@ class App(QMainWindow):
 
         return affMat
 
+    def applyAffine(self, img1Cropped, affMat ,r2):
 
-    def morphing(self):
+        height, width, channel = img1Cropped.shape
+        result_image = np.zeros((r2[3]+20, r2[2]+20, 3), dtype=np.float32)
 
+        for j in range(0, height):
+            for k in range(0, width):
+                try:
+                    coord = [k, j, 1]
+                    inv_aff_mat = np.linalg.inv(affMat)
+                    new_coord = np.matmul(inv_aff_mat, coord)
+
+                    pixel_value = img1Cropped[int(new_coord[1]), int(new_coord[0]), :]
+                    result_image[j, k, :] = pixel_value
+
+                except Exception:
+                    pass
+
+        return result_image
+
+    def warphing(self):
+
+        # create a white space for result image after morphing
         resultImg = 255 * np.ones(self.inputImg.shape, dtype=self.inputImg.dtype)
 
+        # take the triangular points from input(points1) and target(points2) list
         for i in range(len(self.points1)):
             triangular1 = np.float32([[[self.points1[i][0], self.points1[i][1]], [self.points1[i][2], self.points1[i][3]], [self.points1[i][4], self.points1[i][5]]]])
             triangular2 = np.float32([[[self.points2[i][0], self.points2[i][1]], [self.points2[i][2], self.points2[i][3]], [self.points2[i][4], self.points2[i][5]]]])
 
+            # take the top-left points(x, y) and width, height property of box that covers the triangulars
             r1 = cv2.boundingRect(triangular1)
             r2 = cv2.boundingRect(triangular2)
 
@@ -289,28 +308,20 @@ class App(QMainWindow):
                 triangular2_cropped.append(((triangular2[0][j][0] - r2[0]), (triangular2[0][j][1] - r2[1])))
 
             # Crop input image
-            img1Cropped = self.inputImg[r1[1]:r1[1] + r1[3], r1[0]:r1[0] + r1[2]]
+            img1Cropped = self.inputImg2[r1[1]:r1[1] + r1[3] + 20, r1[0]:r1[0] + r1[2] + 20]
 
             affMat = self.affineTransformMatrix(np.float32(triangular1_cropped), np.float32(triangular2_cropped))
-
-            # Given a pair of triangles, find the affine transform.
-            #warpMat = cv2.getAffineTransform(np.float32(triangular1_cropped), np.float32(triangular2_cropped))
-
-            #print("warpMat: ", warpMat)
-
-            # Apply the Affine Transform just found to the src image
-            img2Cropped = cv2.warpAffine(img1Cropped, affMat, (r2[2], r2[3]), None, flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101)
+            outImage = self.applyAffine(img1Cropped, affMat, r2)
 
             # Get mask by filling triangle
             mask = np.zeros((r2[3], r2[2], 3), dtype=np.float32)
             cv2.fillConvexPoly(mask, np.int32(triangular2_cropped), (1.0, 1.0, 1.0), 16, 0)
 
-            img2Cropped = img2Cropped * mask
+            outImage = outImage[:(r2[3]), :(r2[2])] * mask
 
             # Copy triangular region of the rectangular patch to the output image
             resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] * ((1.0, 1.0, 1.0) - mask)
-
-            resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] + img2Cropped
+            resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] + outImage
 
         pixmap_label = self.qlabel3
         height, width, channel = resultImg.shape
@@ -334,8 +345,8 @@ class App(QMainWindow):
         b1 = QPushButton("Create Triangulation")
         b1.clicked.connect(self.createTriangulation1)
 
-        b2 = QPushButton("Morph")
-        b2.clicked.connect(self.morphing)
+        b2 = QPushButton("Warp")
+        b2.clicked.connect(self.warphing)
 
         self.groupBox = QGroupBox()
         self.hBoxlayout = QHBoxLayout()
