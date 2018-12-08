@@ -49,6 +49,16 @@ class App(QMainWindow):
         pixmap = QPixmap(qImg)
         pixmap_label.setPixmap(pixmap)
 
+    def placeImgToLabel3(self, image):
+
+        pixmap_label = self.qlabel3
+        height, width, channel = image.shape
+
+        bytesPerLine = 3 * width
+        qImg = QImage(image.data, width, height, bytesPerLine, QImage.Format_RGB888).rgbSwapped()
+        pixmap = QPixmap(qImg)
+        pixmap_label.setPixmap(pixmap)
+
     #  Draw a point
     def draw_point1(self, p, color):
 
@@ -88,6 +98,7 @@ class App(QMainWindow):
         imagePath, _ = QFileDialog.getOpenFileName()
         self.inputImg = cv2.imread(imagePath)
         self.inputImg2 = cv2.imread(imagePath)
+        self.inputImg3 = cv2.imread(imagePath)
 
         pixmap_label = self.qlabel1
         height, width, channel = self.inputImg.shape
@@ -166,6 +177,7 @@ class App(QMainWindow):
         r = (0, 0, width, height)
 
         tmp_input = self.inputImg
+        tmp_input2 = self.inputImg2
         tmp_target = self.targetImg
 
         for t in triangleList:
@@ -206,8 +218,13 @@ class App(QMainWindow):
                 cv2.line(tmp_target, target_pt2, target_pt3, (255, 255, 255), 1, 8, 0)
                 cv2.line(tmp_target, target_pt3, target_pt1, (255, 255, 255), 1, 8, 0)
 
+                cv2.line(tmp_input2, target_pt1, target_pt2, (255, 255, 255), 1, 8, 0)
+                cv2.line(tmp_input2, target_pt2, target_pt3, (255, 255, 255), 1, 8, 0)
+                cv2.line(tmp_input2, target_pt3, target_pt1, (255, 255, 255), 1, 8, 0)
+
         self.placeImgToLabel1(tmp_input)
         self.placeImgToLabel2(tmp_target)
+        self.placeImgToLabel3(tmp_input2)
 
     def affineTransformMatrix(self, tri1, tri2):
 
@@ -336,7 +353,7 @@ class App(QMainWindow):
                 triangular2_cropped.append(((triangular2[0][j][0] - r2[0]), (triangular2[0][j][1] - r2[1])))
 
             # Crop input image
-            img1Cropped = self.inputImg2[r1[1]:r1[1] + r1[3] + 20, r1[0]:r1[0] + r1[2] + 20]
+            img1Cropped = self.inputImg3[r1[1]:r1[1] + r1[3] + 20, r1[0]:r1[0] + r1[2] + 20]
 
             affMat = self.affineTransformMatrix(np.float32(triangular1_cropped), np.float32(triangular2_cropped))
             outImage = self.applyAffine(img1Cropped, affMat, r2)
@@ -351,13 +368,8 @@ class App(QMainWindow):
             resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] * ((1.0, 1.0, 1.0) - mask)
             resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] = resultImg[r2[1]:r2[1] + r2[3], r2[0]:r2[0] + r2[2]] + outImage
 
-        pixmap_label = self.qlabel3
-        height, width, channel = resultImg.shape
 
-        bytesPerLine = 3 * width
-        qImg = QImage(resultImg.data, width, height, bytesPerLine, QImage.Format_RGB888).rgbSwapped()
-        pixmap = QPixmap(qImg)
-        pixmap_label.setPixmap(pixmap)
+        self.placeImgToLabel3(resultImg)
 
 
     def initUI(self):
