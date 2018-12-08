@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QHBoxLayout, QVBoxLayout, QWidget, QGroupBox, QAction, QFileDialog, qApp, QPushButton
+from PyQt5.QtWidgets import QApplication, QMainWindow, QHBoxLayout, QVBoxLayout, QWidget, QGroupBox, QAction, QFileDialog, qApp, QPushButton, QMessageBox
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtGui import QPixmap, QImage, QIcon
 from PyQt5.QtCore import Qt
@@ -15,6 +15,10 @@ class App(QMainWindow):
         self.top = 10
         self.width = 1000
         self.height = 600
+
+        self.input_opened = False
+        self.target_opened = False
+        self.triangulation_done = False
 
         self.selected_coord1 = []
         self.selected_coord2 = []
@@ -78,8 +82,9 @@ class App(QMainWindow):
         self.draw_point2((x, y), (0, 0, 255))
 
     def openInputImage(self):
-
         # ******** place image into qlabel object *********************
+        self.input_opened = True
+
         imagePath, _ = QFileDialog.getOpenFileName()
         self.inputImg = cv2.imread(imagePath)
         self.inputImg2 = cv2.imread(imagePath)
@@ -99,11 +104,11 @@ class App(QMainWindow):
         # **************************************************************
 
     def openTargetImage(self):
-
         # ******** place image into qlabel object *********************
+        self.target_opened = True
+
         imagePath, _ = QFileDialog.getOpenFileName()
         self.targetImg = cv2.imread(imagePath)
-        self.targetImg2 = self.targetImg
 
         pixmap_label = self.qlabel2
         height, width, channel = self.targetImg.shape
@@ -113,6 +118,8 @@ class App(QMainWindow):
         pixmap = QPixmap(qImg)
         pixmap_label.setPixmap(pixmap)
         pixmap_label.mousePressEvent = self.getPos2
+
+        QMessageBox.question(self, 'How to select points?', "Please, select equal number of points at input and target image, also you should select the points in the same order at two images!", QMessageBox.Ok, QMessageBox.Ok)
         # **************************************************************
 
     # Check if a point is inside a rectangle
@@ -128,6 +135,14 @@ class App(QMainWindow):
         return True
 
     def createTriangulation1(self):
+        if (self.input_opened == False and self.target_opened == False):
+            return QMessageBox.question(self, 'Error Message', "Please, load input and target image", QMessageBox.Ok, QMessageBox.Ok)
+        elif(self.input_opened == True and self.target_opened == False):
+            return QMessageBox.question(self, 'Error Message', "Please, load target image", QMessageBox.Ok, QMessageBox.Ok)
+        elif(self.input_opened == False and self.target_opened == True):
+            return QMessageBox.question(self, 'Error Message', "Please, load input image", QMessageBox.Ok, QMessageBox.Ok)
+
+        self.triangulation_done = True
 
         for i in range(len(self.selected_coord1)):
             avg_x = int((self.selected_coord1[i][0] + self.selected_coord2[i][0]) / 2)
@@ -266,7 +281,7 @@ class App(QMainWindow):
 
         return affMat
 
-    def applyAffine(self, img1Cropped, affMat ,r2):
+    def applyAffine(self, img1Cropped, affMat, r2):
 
         height, width, channel = img1Cropped.shape
         result_image = np.zeros((r2[3]+20, r2[2]+20, 3), dtype=np.float32)
@@ -287,6 +302,16 @@ class App(QMainWindow):
         return result_image
 
     def warphing(self):
+        if (self.input_opened == False and self.target_opened == False):
+            return QMessageBox.question(self, 'Error Message', "Please, load input and target image", QMessageBox.Ok, QMessageBox.Ok)
+        elif(self.input_opened == True and self.target_opened == False):
+            return QMessageBox.question(self, 'Error Message', "Please, load target image", QMessageBox.Ok, QMessageBox.Ok)
+        elif(self.input_opened == False and self.target_opened == True):
+            return QMessageBox.question(self, 'Error Message', "Please, load input image", QMessageBox.Ok, QMessageBox.Ok)
+
+        if(self.triangulation_done == False):
+            return QMessageBox.question(self, 'Error Message', "Please, do triangulation part", QMessageBox.Ok, QMessageBox.Ok)
+
 
         # create a white space for result image after morphing
         resultImg = 255 * np.ones(self.inputImg.shape, dtype=self.inputImg.dtype)
