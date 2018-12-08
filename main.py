@@ -142,6 +142,9 @@ class App(QMainWindow):
         elif(self.input_opened == False and self.target_opened == True):
             return QMessageBox.question(self, 'Error Message', "Please, load input image", QMessageBox.Ok, QMessageBox.Ok)
 
+        if len(self.selected_coord1) != len(self.selected_coord2):
+            return QMessageBox.question(self, 'Error Message', "Please, select equal number of points!", QMessageBox.Ok, QMessageBox.Ok)
+
         self.triangulation_done = True
 
         for i in range(len(self.selected_coord1)):
