@@ -10,7 +10,7 @@ import cv2
 class App(QMainWindow):
     def __init__(self):
         super(App, self).__init__()
-        self.title = 'Image Morphing'
+        self.title = 'Image Warping'
         self.left = 10
         self.top = 10
         self.width = 1000
